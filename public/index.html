@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mailer</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 16px;color:#222}
+  form{display:grid;gap:10px;margin-bottom:32px}
+  input,button{padding:10px;font-size:15px;border:1px solid #ccc;border-radius:6px}
+  button{background:#111;color:#fff;cursor:pointer;border:none}
+  button:disabled{opacity:.5}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid #eee;font-size:14px}
+  .tag{padding:2px 8px;border-radius:99px;font-size:12px}
+  .sent{background:#fff3cd}.replied{background:#d4f4dd}
+  td button{padding:5px 10px;font-size:13px}
+</style>
+</head>
+<body>
+<h1>Mailer</h1>
+<form id="f">
+  <input name="name" placeholder="Name" required>
+  <input name="email" type="email" placeholder="Email" required>
+  <input name="address" placeholder="Address">
+  <button id="b">Send</button>
+</form>
+
+<table>
+  <thead><tr><th>Name</th><th>Email</th><th>Status</th><th></th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<script>
+async function load(){
+  const list = await (await fetch('/api/list')).json();
+  document.getElementById('rows').innerHTML = list.map(c => `
+    <tr>
+      <td>${esc(c.name)}</td>
+      <td>${esc(c.email)}</td>
+      <td><span class="tag ${c.status}">${c.status === 'replied' ? 'Replied' : 'Sent (' + c.sentCount + ')'}</span></td>
+      <td><button onclick="followUp('${c.id}',this)">Send follow-up</button></td>
+    </tr>`).join('');
+}
+const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+async function post(body){
+  const r = await fetch('/api/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok) alert((await r.json()).error || 'Failed');
+}
+async function followUp(id,btn){ btn.disabled=true; await post({id}); await load(); }
+
+document.getElementById('f').onsubmit = async e => {
+  e.preventDefault();
+  const b = document.getElementById('b'); b.disabled = true;
+  await post(Object.fromEntries(new FormData(e.target)));
+  e.target.reset(); b.disabled = false; load();
+};
+load(); setInterval(load, 10000); // auto-refresh so replies show up
+</script>
+</body>
+</html>
